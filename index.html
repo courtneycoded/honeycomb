@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hex Grid Designer</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <h1>Hex Grid Designer</h1>
+      <div class="topbar-actions">
+        <button id="btn-clear" class="btn btn-ghost" title="Clear all fills">Clear Fills</button>
+        <button id="btn-reset" class="btn btn-ghost" title="Reset grid to defaults">Reset Grid</button>
+        <button id="btn-export-svg" class="btn">Download SVG</button>
+        <button id="btn-export-png" class="btn btn-primary">Download PNG</button>
+      </div>
+    </header>
+
+    <div class="main">
+      <aside class="sidebar">
+        <section class="panel">
+          <h2>Grid Size</h2>
+          <label class="field">
+            <span>Columns <output id="out-cols"></output></span>
+            <input type="range" id="in-cols" min="1" max="40" step="1" value="10" />
+          </label>
+          <label class="field">
+            <span>Rows <output id="out-rows"></output></span>
+            <input type="range" id="in-rows" min="1" max="40" step="1" value="8" />
+          </label>
+          <label class="field">
+            <span>Orientation</span>
+            <select id="in-orientation">
+              <option value="flat">Flat-top</option>
+              <option value="pointy">Pointy-top</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="panel">
+          <h2>Hex Style</h2>
+          <label class="field">
+            <span>Hex Size <output id="out-size"></output></span>
+            <input type="range" id="in-size" min="10" max="80" step="1" value="32" />
+          </label>
+          <label class="field">
+            <span>Gap <output id="out-gap"></output></span>
+            <input type="range" id="in-gap" min="0" max="0.6" step="0.02" value="0.08" />
+          </label>
+          <label class="field">
+            <span>Outline Width <output id="out-strokewidth"></output></span>
+            <input type="range" id="in-strokewidth" min="0" max="8" step="0.5" value="2" />
+          </label>
+          <label class="field row">
+            <span>Outline Color</span>
+            <input type="color" id="in-strokecolor" value="#2b2b2b" />
+          </label>
+          <label class="field row">
+            <span>Background</span>
+            <input type="color" id="in-bgcolor" value="#ffffff" />
+          </label>
+        </section>
+
+        <section class="panel">
+          <h2>Labels</h2>
+          <label class="field row">
+            <span>Show Labels</span>
+            <input type="checkbox" id="in-showlabels" />
+          </label>
+          <label class="field">
+            <span>Label Style</span>
+            <select id="in-labelmode">
+              <option value="index">Sequential #</option>
+              <option value="coord">Row,Col</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="panel">
+          <h2>Paint</h2>
+          <label class="field row">
+            <span>Fill Color</span>
+            <input type="color" id="in-fillcolor" value="#ffb703" />
+          </label>
+          <div class="swatches" id="swatches"></div>
+          <p class="hint">
+            Click or click-drag a hex to fill it.<br />
+            Right-click (or click with Erase mode) to clear a hex.
+          </p>
+          <label class="field row">
+            <span>Erase Mode</span>
+            <input type="checkbox" id="in-erasemode" />
+          </label>
+        </section>
+      </aside>
+
+      <main class="canvas-wrap">
+        <div id="grid-container" class="grid-container"></div>
+      </main>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
