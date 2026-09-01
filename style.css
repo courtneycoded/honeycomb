@@ -133,11 +133,31 @@ html, body {
 }
 
 .field select,
-.field input[type="color"] {
+.field input[type="color"],
+.field textarea {
   width: 100%;
-  height: 2.2rem;
   border-radius: 6px;
   border: 1px solid var(--border);
+}
+
+.field select,
+.field input[type="color"] {
+  height: 2.2rem;
+}
+
+.field textarea {
+  padding: 0.5rem;
+  font: inherit;
+  resize: vertical;
+}
+
+.btn-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-row .btn {
+  flex: 1;
 }
 
 .field.row input[type="color"] {
@@ -206,3 +226,39 @@ html, body {
   text-anchor: middle;
   dominant-baseline: middle;
 }
+
+.hex-word-label {
+  pointer-events: none;
+  user-select: none;
+  font-weight: 600;
+  fill: #1f2430;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.hex-cell.word-drag-source {
+  opacity: 0.35;
+}
+
+.hex-cell.word-drag-target {
+  outline: none;
+  stroke: var(--accent-dark);
+  stroke-width: 4;
+}
+
+.word-drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  transform: translate(-9999px, -9999px);
+  pointer-events: none;
+  background: #201a00;
+  color: #ffd166;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  z-index: 1000;
+  white-space: nowrap;
+}
+

@@ -27,11 +27,19 @@
   /** @type {Record<string, string>} map "r,c" -> fill color */
   let cellFills = {};
 
+  /** @type {Record<string, string>} map "r,c" -> word */
+  let cellWords = {};
+
   let config = { ...DEFAULTS };
   let currentColor = "#ffb703";
   let eraseMode = false;
   let isPainting = false;
   let paintColorForStroke = null; // color used for the current drag stroke
+
+  let swapMode = false;
+  let wordDrag = null; // { sourceKey, word, sourcePoly }
+  let hoveredHexKey = null;
+  let wordGhostEl = null;
 
   const el = {
     container: document.getElementById("grid-container"),
@@ -57,6 +65,12 @@
     btnReset: document.getElementById("btn-reset"),
     btnExportSvg: document.getElementById("btn-export-svg"),
     btnExportPng: document.getElementById("btn-export-png"),
+    wordList: document.getElementById("in-wordlist"),
+    shuffle: document.getElementById("in-shuffle"),
+    swapMode: document.getElementById("in-swapmode"),
+    outWordCount: document.getElementById("out-wordcount"),
+    btnDistribute: document.getElementById("btn-distribute"),
+    btnClearWords: document.getElementById("btn-clearwords"),
   };
 
   // ---------- Geometry ----------
@@ -90,6 +104,12 @@
   }
 
   // ---------- Rendering ----------
+
+  function wordFontSize(word, size, orientation) {
+    const availableWidth = (orientation === "flat" ? 1.5 : 1.7) * size;
+    const estimate = availableWidth / Math.max(word.length, 1) / 0.58;
+    return Math.max(8, Math.min(size * 0.42, estimate));
+  }
 
   function buildGrid() {
     const { cols, rows, size, gap, orientation, strokeWidth, strokeColor, bgColor, showLabels, labelMode } = config;
@@ -153,7 +173,16 @@
       poly.dataset.col = String(hex.c);
       cellsGroup.appendChild(poly);
 
-      if (showLabels) {
+      const word = cellWords[key];
+      if (word) {
+        const text = document.createElementNS(SVG_NS, "text");
+        text.setAttribute("x", String(hex.x));
+        text.setAttribute("y", String(hex.y));
+        text.setAttribute("class", "hex-word-label");
+        text.setAttribute("font-size", String(wordFontSize(word, size, orientation)));
+        text.textContent = word;
+        cellsGroup.appendChild(text);
+      } else if (showLabels) {
         const text = document.createElementNS(SVG_NS, "text");
         text.setAttribute("x", String(hex.x));
         text.setAttribute("y", String(hex.y));
@@ -196,8 +225,11 @@
   function attachPaintHandlers(svg) {
     svg.addEventListener("contextmenu", (e) => {
       const target = e.target;
-      if (target.classList && target.classList.contains("hex-cell")) {
-        e.preventDefault();
+      if (!target.classList || !target.classList.contains("hex-cell")) return;
+      e.preventDefault();
+      if (swapMode) {
+        clearWordAt(target);
+      } else {
         paintCell(target, true);
       }
     });
@@ -206,6 +238,15 @@
       const target = e.target;
       if (!target.classList || !target.classList.contains("hex-cell")) return;
       if (e.button === 2) return; // handled by contextmenu
+
+      if (swapMode) {
+        const key = `${target.dataset.row},${target.dataset.col}`;
+        const word = cellWords[key];
+        if (!word) return;
+        startWordDrag(key, word, target, e);
+        return;
+      }
+
       isPainting = true;
       const erase = eraseMode || e.button === 1 || e.shiftKey;
       paintColorForStroke = erase;
@@ -213,10 +254,20 @@
     });
 
     svg.addEventListener("pointerover", (e) => {
-      if (!isPainting) return;
       const target = e.target;
       if (!target.classList || !target.classList.contains("hex-cell")) return;
+      hoveredHexKey = `${target.dataset.row},${target.dataset.col}`;
+
+      if (wordDrag) {
+        updateWordDragTarget(target);
+        return;
+      }
+      if (!isPainting || swapMode) return;
       paintCell(target, paintColorForStroke);
+    });
+
+    svg.addEventListener("pointerleave", () => {
+      hoveredHexKey = null;
     });
 
     svg.addEventListener("dragstart", (e) => e.preventDefault());
@@ -225,7 +276,128 @@
   window.addEventListener("pointerup", () => {
     isPainting = false;
     paintColorForStroke = null;
+    if (wordDrag) finishWordDrag();
   });
+
+  window.addEventListener("pointermove", (e) => {
+    if (wordDrag) moveWordGhost(e.clientX, e.clientY);
+  });
+
+  // ---------- Word list ----------
+
+  function ensureWordGhost() {
+    if (wordGhostEl) return wordGhostEl;
+    wordGhostEl = document.createElement("div");
+    wordGhostEl.className = "word-drag-ghost";
+    document.body.appendChild(wordGhostEl);
+    return wordGhostEl;
+  }
+
+  function moveWordGhost(x, y) {
+    const ghost = ensureWordGhost();
+    ghost.style.transform = `translate(${x + 14}px, ${y + 14}px)`;
+  }
+
+  function startWordDrag(key, word, poly, e) {
+    wordDrag = { sourceKey: key, word, sourcePoly: poly, targetPoly: null };
+    poly.classList.add("word-drag-source");
+    const ghost = ensureWordGhost();
+    ghost.textContent = word;
+    moveWordGhost(e.clientX, e.clientY);
+  }
+
+  function updateWordDragTarget(poly) {
+    if (!wordDrag) return;
+    if (wordDrag.targetPoly && wordDrag.targetPoly !== poly) {
+      wordDrag.targetPoly.classList.remove("word-drag-target");
+    }
+    if (poly !== wordDrag.sourcePoly) {
+      poly.classList.add("word-drag-target");
+      wordDrag.targetPoly = poly;
+    } else {
+      wordDrag.targetPoly = null;
+    }
+  }
+
+  function finishWordDrag() {
+    const { sourceKey, word, sourcePoly, targetPoly } = wordDrag;
+    sourcePoly.classList.remove("word-drag-source");
+    if (targetPoly) targetPoly.classList.remove("word-drag-target");
+
+    if (targetPoly) {
+      const targetKey = `${targetPoly.dataset.row},${targetPoly.dataset.col}`;
+      const targetWord = cellWords[targetKey];
+      if (targetWord) {
+        cellWords[sourceKey] = targetWord;
+      } else {
+        delete cellWords[sourceKey];
+      }
+      cellWords[targetKey] = word;
+      render();
+      saveState();
+    }
+
+    if (wordGhostEl) {
+      wordGhostEl.remove();
+      wordGhostEl = null;
+    }
+    wordDrag = null;
+  }
+
+  function clearWordAt(poly) {
+    const key = `${poly.dataset.row},${poly.dataset.col}`;
+    if (!cellWords[key]) return;
+    delete cellWords[key];
+    render();
+    saveState();
+  }
+
+  function parseWordList(text) {
+    return text
+      .split("\n")
+      .map((w) => w.trim())
+      .filter((w) => w.length > 0);
+  }
+
+  function shuffleArray(arr) {
+    const out = arr.slice();
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+  }
+
+  function distributeWords() {
+    const words = parseWordList(el.wordList.value);
+    const { rows, cols } = config;
+    let keys = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) keys.push(`${r},${c}`);
+    }
+    if (el.shuffle.checked) keys = shuffleArray(keys);
+
+    cellWords = {};
+    const count = Math.min(words.length, keys.length);
+    for (let i = 0; i < count; i++) {
+      cellWords[keys[i]] = words[i];
+    }
+    render();
+    saveState();
+
+    if (words.length > keys.length) {
+      alert(
+        `Only ${keys.length} of ${words.length} words fit on the grid. ` +
+          `Add more rows/columns or trim the word list to place the rest.`
+      );
+    }
+  }
+
+  function clearWords() {
+    cellWords = {};
+    render();
+    saveState();
+  }
 
   // ---------- Controls wiring ----------
 
@@ -249,6 +421,11 @@
     el.showLabels.checked = config.showLabels;
     el.labelMode.value = config.labelMode;
     syncOutputs();
+  }
+
+  function syncWordCount() {
+    const count = parseWordList(el.wordList.value).length;
+    el.outWordCount.textContent = count > 0 ? `(${count})` : "";
   }
 
   function buildSwatches() {
@@ -335,6 +512,22 @@
       eraseMode = el.eraseMode.checked;
     });
 
+    el.wordList.addEventListener("input", () => {
+      syncWordCount();
+      saveState();
+    });
+    el.shuffle.addEventListener("change", saveState);
+    el.swapMode.addEventListener("change", () => {
+      swapMode = el.swapMode.checked;
+      isPainting = false;
+    });
+
+    el.btnDistribute.addEventListener("click", distributeWords);
+    el.btnClearWords.addEventListener("click", () => {
+      if (!confirm("Clear all placed words? This cannot be undone.")) return;
+      clearWords();
+    });
+
     el.btnClear.addEventListener("click", () => {
       if (!confirm("Clear all hex fills? This cannot be undone.")) return;
       cellFills = {};
@@ -416,7 +609,16 @@
 
   function saveState() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ config, cellFills }));
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          config,
+          cellFills,
+          cellWords,
+          wordListText: el.wordList.value,
+          shuffle: el.shuffle.checked,
+        })
+      );
     } catch (e) {
       // storage unavailable or full; ignore silently
     }
@@ -429,10 +631,14 @@
       const parsed = JSON.parse(raw);
       if (parsed.config) config = { ...DEFAULTS, ...parsed.config };
       if (parsed.cellFills) cellFills = parsed.cellFills;
+      if (parsed.cellWords) cellWords = parsed.cellWords;
+      if (typeof parsed.wordListText === "string") el.wordList.value = parsed.wordListText;
+      if (typeof parsed.shuffle === "boolean") el.shuffle.checked = parsed.shuffle;
     } catch (e) {
       // corrupted state; start fresh
       config = { ...DEFAULTS };
       cellFills = {};
+      cellWords = {};
     }
   }
 
@@ -441,6 +647,7 @@
   function init() {
     loadState();
     syncInputsFromConfig();
+    syncWordCount();
     buildSwatches();
     bindControls();
     render();

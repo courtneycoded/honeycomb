@@ -79,6 +79,31 @@
         </section>
 
         <section class="panel">
+          <h2>Word List</h2>
+          <label class="field">
+            <span>Words <output id="out-wordcount"></output></span>
+            <textarea id="in-wordlist" rows="6" placeholder="One word per line&#10;fox&#10;river&#10;lantern&#10;..."></textarea>
+          </label>
+          <label class="field row">
+            <span>Shuffle placement</span>
+            <input type="checkbox" id="in-shuffle" />
+          </label>
+          <div class="btn-row">
+            <button id="btn-distribute" class="btn btn-primary">Distribute Words</button>
+            <button id="btn-clearwords" class="btn btn-ghost">Clear Words</button>
+          </div>
+          <label class="field row" style="margin-top: 0.75rem;">
+            <span>Swap Mode</span>
+            <input type="checkbox" id="in-swapmode" />
+          </label>
+          <p class="hint">
+            With Swap Mode on, drag a hex's word onto another hex to swap
+            them (drop on an empty hex to move it). Right-click a hex to
+            clear just its word. Turn Swap Mode off to paint again.
+          </p>
+        </section>
+
+        <section class="panel">
           <h2>Paint</h2>
           <label class="field row">
             <span>Fill Color</span>
